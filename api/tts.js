@@ -1,7 +1,11 @@
 // Vercel 서버리스 함수: 브라우저 ↔ OpenAI 사이의 중계자.
 // OpenAI 키를 여기 저장하지 않고, 매 요청마다 클라이언트가 실어 보낸 키를
 // 그대로 OpenAI에 전달만 함. 응답에 CORS 허용 헤더를 붙여서 브라우저가
-// 막지 않고 받을 수 있게 해줌.
+// 막지 않고 받을 수 있게 해줌. voice/speed도 클라이언트가 보낸 값을 그대로 전달.
+const ALLOWED_VOICES = new Set([
+  "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer",
+]);
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -37,6 +41,13 @@ export default async function handler(req, res) {
     return;
   }
 
+  const voiceIn = ((body && body.voice) || "nova").toString();
+  const voice = ALLOWED_VOICES.has(voiceIn) ? voiceIn : "nova";
+
+  let speed = Number(body && body.speed);
+  if (!Number.isFinite(speed)) speed = 1.0;
+  speed = Math.max(0.25, Math.min(4.0, speed));
+
   try {
     const openaiRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
@@ -46,8 +57,9 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "tts-1",
-        voice: "nova",
+        voice,
         input: text,
+        speed,
       }),
     });
 
