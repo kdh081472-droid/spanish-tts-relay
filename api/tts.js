@@ -1,0 +1,66 @@
+// Vercel 서버리스 함수: 브라우저 ↔ OpenAI 사이의 중계자.
+// OpenAI 키를 여기 저장하지 않고, 매 요청마다 클라이언트가 실어 보낸 키를
+// 그대로 OpenAI에 전달만 함. 응답에 CORS 허용 헤더를 붙여서 브라우저가
+// 막지 않고 받을 수 있게 해줌.
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "POST만 지원해요." });
+    return;
+  }
+
+  const auth = req.headers.authorization || "";
+  const apiKey = auth.replace(/^Bearer\s+/i, "").trim();
+  if (!apiKey) {
+    res.status(401).json({ error: "API 키가 없어요. Authorization 헤더로 보내주세요." });
+    return;
+  }
+
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      body = {};
+    }
+  }
+  const text = ((body && body.text) || "").toString().slice(0, 2000);
+  if (!text.trim()) {
+    res.status(400).json({ error: "읽을 텍스트가 없어요." });
+    return;
+  }
+
+  try {
+    const openaiRes = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "tts-1",
+        voice: "nova",
+        input: text,
+      }),
+    });
+
+    if (!openaiRes.ok) {
+      const errText = await openaiRes.text().catch(() => "");
+      res.status(openaiRes.status).json({ error: errText || "OpenAI 요청이 실패했어요." });
+      return;
+    }
+
+    const buf = Buffer.from(await openaiRes.arrayBuffer());
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.status(200).send(buf);
+  } catch (e) {
+    res.status(500).json({ error: e?.message || "중계 서버에서 오류가 났어요." });
+  }
+}
