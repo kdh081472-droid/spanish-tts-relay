@@ -3,7 +3,7 @@
 // 그대로 OpenAI에 전달만 함. 응답에 CORS 허용 헤더를 붙여서 브라우저가
 // 막지 않고 받을 수 있게 해줌. voice/speed도 클라이언트가 보낸 값을 그대로 전달.
 const ALLOWED_VOICES = new Set([
-  "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer",
+  "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "marin", "cedar",
 ]);
 
 export default async function handler(req, res) {
@@ -62,10 +62,17 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "tts-1",
+        model: "gpt-4o-mini-tts",
         voice,
         input: spokenText,
         speed,
+        instructions:
+          "Speak in natural Mexican Spanish. Use an authentic Mexican Spanish accent and pronunciation. " +
+          "Speak like a native Mexican Spanish speaker in a casual conversation. Use natural Spanish " +
+          "pronunciation, word stress, rhythm, and sentence intonation. For questions, use natural Mexican " +
+          "Spanish question intonation. Use natural connected speech. Do not use an English accent. Do not " +
+          "pronounce Spanish words using English pronunciation patterns. Speak clearly and naturally for a " +
+          "Spanish learner. Do not exaggerate the accent.",
       }),
     });
 
@@ -82,3 +89,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: e?.message || "중계 서버에서 오류가 났어요." });
   }
 }
+
