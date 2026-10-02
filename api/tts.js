@@ -48,6 +48,12 @@ export default async function handler(req, res) {
   if (!Number.isFinite(speed)) speed = 1.0;
   speed = Math.max(0.25, Math.min(4.0, speed));
 
+  // 짧은 문장일수록 일부 목소리(특히 nova/shimmer)에서 시작 부분이 잘려 들리는
+  // 증상이 있어서(OpenAI 쪽 알려진 문제), 맨 앞에 마침표+공백을 항상 붙여서 보냄 — 커뮤니티에서
+  // 확인된 우회법. 스페인어는 ¡/¿로 시작하는 경우가 많은데 그것만으론 보호가 안 돼서,
+  // 이미 마침표로 시작하는 경우만 빼고는 항상 붙임.
+  const spokenText = text.startsWith(". ") ? text : `. ${text}`;
+
   try {
     const openaiRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
@@ -58,7 +64,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: "tts-1",
         voice,
-        input: text,
+        input: spokenText,
         speed,
       }),
     });
